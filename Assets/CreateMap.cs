@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -253,30 +254,19 @@ public class CreateMap : MonoBehaviour {
 					gameState = GameState.Calculation;
 					break;
 				case GameState.Calculation:
-					if (searchWay == SearchWay.BFS)
-					{
-						gameState = GameState.ShowPath;
-					}
-					if (searchWay == SearchWay.DFS)
-					{
-						gameState = GameState.ShowPath;
-					}
-					if (searchWay == SearchWay.AStar)
-					{
-						gameState = GameState.ShowPath;
-					}
+					
 					break;
 				case GameState.ShowPath:
 					if (searchWay==SearchWay.BFS)
 					{
 						StartCoroutine(BFSShowPath());
 						gameState = GameState.Finish;
-					}
+					}else 
 					if (searchWay==SearchWay.DFS)
 					{
 						StartCoroutine(BFSShowPath());
 						gameState = GameState.Finish;
-					}
+					}else 
 					if (searchWay==SearchWay.AStar)
 					{
 						StartCoroutine(AStarShowPath());
@@ -289,6 +279,105 @@ public class CreateMap : MonoBehaviour {
 	}
 
 	delegate bool Func(Pos cur, int ox, int oy);
+	#region AStar
+
+	private AScore[,] astar_search;//是一个而为的点的信息，点里包含权重，F = G + H ; G为点要走过自身的格子距离，H为到目标点的距离
+	IEnumerator AStar()
+	{
+		astar_search =new AScore[map.GetLength(0),map.GetLength(1)];//确保星可以遍布在地图每个点
+		List<Pos>MapTargetPoslist=new List<Pos>();//只用来保存要涉及到的点的坐标
+		
+		astar_search[startPos.y,startPos.x]=new AScore(0,0);//让第一个起始点的G和H为0
+		MapTargetPoslist.Add(startPos);//将起始点记录进我们路线 ，因为是从此出发
+
+		Func func = (Pos curPos, int ox, int oy) =>
+		{
+			var tar_Score = astar_search[curPos.y + oy, curPos.x + ox];//表示下一个去的点；
+			if (tar_Score!=null&&tar_Score.closed)
+			{
+				return false;
+			}
+
+			var cur_Score = astar_search[curPos.y, curPos.x];//表示当前所在的点
+			Pos nextPos=new Pos(curPos.x+ox,curPos.y+oy);
+			
+			if (map[curPos.y+oy,curPos.x+ox]==END)
+			{
+				var end_Score = new AScore(cur_Score.G + 1, 0);
+				end_Score.parent = curPos;
+				astar_search[curPos.y + oy, curPos.x + ox] = end_Score;
+				Debug.Log("Done");
+				return true;
+			}
+			if (map[curPos.y+oy,curPos.x+ox]==0)//表示下一个点我们还没走过
+			{
+				if (tar_Score==null)
+				{
+					var a=new AScore(cur_Score.G+1,Pos.AStarDistance(nextPos,endPos));//AStarDistance计算了下一个点 中点到endPos的距离放在H里，然后创建下个点
+					a.parent = curPos;
+					astar_search[curPos.y + oy, curPos.x + ox] = a;
+					MapTargetPoslist.Add(nextPos);
+					//Debug.Log("next "+curPos.x+" "+curPos.y);
+				}
+			}
+			return false;
+		};
+		while (MapTargetPoslist.Count>0)
+		{
+			MapTargetPoslist.Sort((Pos p1, Pos p2) =>
+			{
+				AScore a1 = astar_search[p1.y, p1.x];
+				AScore a2 = astar_search[p2.y, p2.x];
+				return a1.CompareTo(a2);
+			});//得到F最小的点放在list[0]
+			Pos cur = MapTargetPoslist[0];
+			MapTargetPoslist.RemoveAt(0);
+			astar_search[cur.y, cur.x].closed = true;//标记当前点为 以访问;
+			// 上
+			if (cur.y > 0)
+			{
+				if (func(cur, 0, -1)) { break; }
+			}
+			// 下
+			if (cur.y < H - 1)
+			{
+				if (func(cur, 0, 1)) { break; }
+			}
+			// 左
+			if (cur.x > 0)
+			{
+				if (func(cur, -1, 0)) { break; }
+			}
+			// 右
+			if (cur.x < W - 1)
+			{
+				if (func(cur, 1, 0)) { break; }
+			}
+			
+			short[,] temp_map = new short[map.GetLength(0), map.GetLength(1)];
+			for (int i=0; i<H; ++i)
+			{
+				for (int j=0; j<W; ++j)
+				{
+					temp_map[i, j] = short.MaxValue;
+					//if (map_search[i,j] != null && map_search[i,j].closed)
+					if (astar_search[i,j] != null)
+					{
+						temp_map[i, j] = (short)astar_search[i, j].F;
+					}
+				}
+			}
+			RefreshPath(temp_map);
+			yield return 0;
+		}
+		Debug.Log("开始显示路线");
+		gameState = GameState.ShowPath;
+		yield return null;
+	}
+	
+   
+    
+	#endregion
 	#region BFS
 	//===============-BFS-================================================================================
 	private int cur_depth = 0;
@@ -480,105 +569,7 @@ public class CreateMap : MonoBehaviour {
 	//===============-BFS-================================================================================
 	#endregion
 
-	#region AStar
-
-	private AScore[,] astar_search;//是一个而为的点的信息，点里包含权重，F = G + H ; G为点要走过自身的格子距离，H为到目标点的距离
-	IEnumerator AStar()
-	{
-		astar_search =new AScore[map.GetLength(0),map.GetLength(1)];//确保星可以遍布在地图每个点
-		List<Pos>MapTargetPoslist=new List<Pos>();//只用来保存要涉及到的点的坐标
-		
-		astar_search[startPos.y,startPos.x]=new AScore(0,0);//让第一个起始点的G和H为0
-		MapTargetPoslist.Add(startPos);//将起始点记录进我们路线 ，因为是从此出发
-
-		Func func = (Pos curPos, int ox, int oy) =>
-		{
-			var tar_Score = astar_search[curPos.y + oy, curPos.x + ox];//表示下一个去的点；
-			if (tar_Score!=null&&tar_Score.closed)
-			{
-				return false;
-			}
-
-			var cur_Score = astar_search[curPos.y, curPos.x];//表示当前所在的点
-			Pos nextPos=new Pos(curPos.x+ox,curPos.y+oy);
-			
-			if (map[curPos.y+oy,curPos.x+ox]==END)
-			{
-				var end_Score = new AScore(cur_Score.G + 1, 0);
-				end_Score.parent = curPos;
-				astar_search[curPos.y + oy, curPos.x + ox] = end_Score;
-				Debug.Log("Done");
-				return true;
-			}
-			if (map[curPos.y+oy,curPos.x+ox]==0)//表示下一个点我们还没走过
-			{
-				if (tar_Score==null)
-				{
-					var a=new AScore(cur_Score.G+1,Pos.AStarDistance(nextPos,endPos));//AStarDistance计算了下一个点 中点到endPos的距离放在H里，然后创建下个点
-					a.parent = curPos;
-					astar_search[curPos.y + oy, curPos.x + ox] = a;
-					MapTargetPoslist.Add(nextPos);
-					//Debug.Log("next "+curPos.x+" "+curPos.y);
-				}
-			}
-			return false;
-		};
-		while (MapTargetPoslist.Count>0)
-		{
-			MapTargetPoslist.Sort((Pos p1, Pos p2) =>
-			{
-				AScore a1 = astar_search[p1.y, p1.x];
-				AScore a2 = astar_search[p2.y, p2.x];
-				return a1.CompareTo(a2);
-			});//得到F最小的点放在list[0]
-			Pos cur = MapTargetPoslist[0];
-			MapTargetPoslist.RemoveAt(0);
-			astar_search[cur.y, cur.x].closed = true;//标记当前点为 以访问;
-			// 上
-			if (cur.y > 0)
-			{
-				if (func(cur, 0, -1)) { break; }
-			}
-			// 下
-			if (cur.y < H - 1)
-			{
-				if (func(cur, 0, 1)) { break; }
-			}
-			// 左
-			if (cur.x > 0)
-			{
-				if (func(cur, -1, 0)) { break; }
-			}
-			// 右
-			if (cur.x < W - 1)
-			{
-				if (func(cur, 1, 0)) { break; }
-			}
-			
-			short[,] temp_map = new short[map.GetLength(0), map.GetLength(1)];
-			for (int i=0; i<H; ++i)
-			{
-				for (int j=0; j<W; ++j)
-				{
-					temp_map[i, j] = short.MaxValue;
-					//if (map_search[i,j] != null && map_search[i,j].closed)
-					if (astar_search[i,j] != null)
-					{
-						temp_map[i, j] = (short)astar_search[i, j].F;
-					}
-				}
-			}
-			RefreshPath(temp_map);
-			yield return 0;
-		}
-
-		gameState = GameState.ShowPath;
-		yield return null;
-	}
 	
-   
-    
-	#endregion
 	
 	
 	IEnumerator BFSShowPath()
@@ -622,7 +613,10 @@ public class CreateMap : MonoBehaviour {
 		while (!pos.Equals(startPos))
 		{
 			Instantiate(prefab_way, new Vector3(pos.x * 1, 0.5f, pos.y * 1), Quaternion.identity, pathParent.transform);
-			pos = astar_search[pos.y, pos.x].parent;
+			
+				pos = astar_search[pos.y, pos.x].parent;
+			
+			Debug.Log(pos.x+" "+pos.y);
 			yield return new WaitForSeconds(0.1f);
 		}
 	}
@@ -644,7 +638,7 @@ public class CreateMap : MonoBehaviour {
 			{
 				if (map[i,j]==START)
 				{
-					Debug.Log("START "+ prefab_start);
+					//Debug.Log("START "+ prefab_start);
 					var go = Instantiate(prefab_start, new Vector3(j * 1, 0.5f, i * 1), Quaternion.identity, pathParent.transform);
 					go.tag = "Path";
 				}
