@@ -108,7 +108,6 @@ public class CreateMap : MonoBehaviour {
 		BFS,
 		DFS,
 		AStar,
-		Link,
 	}
 	public SearchWay searchWay = SearchWay.BFS;
 	
@@ -482,8 +481,8 @@ public class CreateMap : MonoBehaviour {
 	#endregion
 
 	#region AStar
-	
-	AScore[,] astar_search;//是一个而为的点的信息，点里包含权重，F = G + H ; G为点要走过自身的格子距离，H为到目标点的距离
+
+	private AScore[,] astar_search;//是一个而为的点的信息，点里包含权重，F = G + H ; G为点要走过自身的格子距离，H为到目标点的距离
 	IEnumerator AStar()
 	{
 		astar_search =new AScore[map.GetLength(0),map.GetLength(1)];//确保星可以遍布在地图每个点
@@ -508,7 +507,7 @@ public class CreateMap : MonoBehaviour {
 				var end_Score = new AScore(cur_Score.G + 1, 0);
 				end_Score.parent = curPos;
 				astar_search[curPos.y + oy, curPos.x + ox] = end_Score;
-				Debug.Log("Done"+curPos.x+" "+curPos.y);
+				Debug.Log("Done");
 				return true;
 			}
 			if (map[curPos.y+oy,curPos.x+ox]==0)//表示下一个点我们还没走过
@@ -519,7 +518,7 @@ public class CreateMap : MonoBehaviour {
 					a.parent = curPos;
 					astar_search[curPos.y + oy, curPos.x + ox] = a;
 					MapTargetPoslist.Add(nextPos);
-					Debug.Log("next "+curPos.x+" "+curPos.y);
+					//Debug.Log("next "+curPos.x+" "+curPos.y);
 				}
 			}
 			return false;
@@ -534,7 +533,7 @@ public class CreateMap : MonoBehaviour {
 			});//得到F最小的点放在list[0]
 			Pos cur = MapTargetPoslist[0];
 			MapTargetPoslist.RemoveAt(0);
-			astar_search[cur.y, cur.x].closed=true;//标记当前点为 以访问;
+			astar_search[cur.y, cur.x].closed = true;//标记当前点为 以访问;
 			// 上
 			if (cur.y > 0)
 			{
@@ -572,9 +571,13 @@ public class CreateMap : MonoBehaviour {
 			RefreshPath(temp_map);
 			yield return 0;
 		}
+
+		gameState = GameState.ShowPath;
 		yield return null;
 	}
-
+	
+   
+    
 	#endregion
 	
 	
@@ -618,9 +621,8 @@ public class CreateMap : MonoBehaviour {
 		Pos pos = endPos;
 		while (!pos.Equals(startPos))
 		{
-			var go = Instantiate(prefab_end, new Vector3(pos.x * 1, 0.5f, pos.y * 1), Quaternion.identity, pathParent.transform);
+			Instantiate(prefab_way, new Vector3(pos.x * 1, 0.5f, pos.y * 1), Quaternion.identity, pathParent.transform);
 			pos = astar_search[pos.y, pos.x].parent;
-			Debug.Log(pos.x+""+pos.y);
 			yield return new WaitForSeconds(0.1f);
 		}
 	}
