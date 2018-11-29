@@ -1,8 +1,7 @@
 # ViewAI
-#Pathfinding visualization of 3 different algorithms  
-ASTAR  
+Pathfinding visualization of 3 different algorithms  
+
+ASTAR-BFS-DFS 
 ![img](https://github.com/MashiroShina/ViewAI/blob/master/ASTAR.gif)
-BFS  
 ![img](https://github.com/MashiroShina/ViewAI/blob/master/BFS.gif)
-DFS  
 ![img](https://github.com/MashiroShina/ViewAI/blob/master/DFS.gif)
